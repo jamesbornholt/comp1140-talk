@@ -1,6 +1,6 @@
 #lang s-exp rosette
 
-(require "lang.rkt")
+(require "../lang.rkt")
 
 (define (max1 x y)
   (if (> x y) x y))
