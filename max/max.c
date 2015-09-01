@@ -3,7 +3,10 @@
 #include <sys/time.h>
 
 int max1(int x, int y) {
-    return x > y ? x : y;
+    if (x > y)
+        return x;
+    else
+        return y;
 }
 
 int max2(int x, int y) {

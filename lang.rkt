@@ -2,7 +2,8 @@
 
 ; boring language crap
 (require (rename-in (only-in rosette/base/num @>=)))
-(provide (all-defined-out))
+(require rosette/query/debug rosette/lib/tools/render)
+(provide (all-defined-out) define/debug)
 
 (current-bitwidth 32)
 
@@ -21,3 +22,6 @@
      (verify (assert expr))))
   (cond [(sat? S) S]
         [else     #t]))
+
+(define-syntax-rule (debug-expr expr)
+  (render (debug [number?] (assert expr))))
