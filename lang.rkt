@@ -25,3 +25,23 @@
 
 (define-syntax-rule (debug-expr expr)
   (render (debug [number?] (assert expr))))
+
+(define-syntax-rule (debug-function expr)
+  (render (debug [boolean? number?] expr)))
+
+(define unroll (make-parameter 1))
+
+(define (IsLeapYear year)
+  (and (= (remainder year 4) 0)
+       (not (= (remainder year 100) 0))
+       (not (= (remainder year 400) 0))))
+
+(define-syntax-rule (while test body ...)
+  (local [(define (loop bound)
+            (define condition test)
+            (if (protect (and (<= bound 0) (or (not condition) (union? condition) (term? condition))))
+                (assert (not condition))
+                (when condition
+                  body ...
+                  (loop (protect (- bound 1))))))]
+    (loop (protect (unroll)))))

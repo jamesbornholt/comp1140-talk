@@ -337,4 +337,128 @@ So it turns out the version without an if statement---the crazy version we wrote
 
 ## Fixing the Zune bug
 
-Now let's go back to the Zune bug from earlier.
+Now let's go back to the Zune bug from earlier. First the Java version:
+
+```java
+int GetCurrentYear(int days) {
+    int year = 1980;
+    while (days > 365) {
+        if (IsLeapYear(year)) {
+            if (days > 366) {
+                days -= 366;
+                year += 1;
+            }
+        }
+        else {
+            days -= 365;
+            year += 1;
+        }
+    }
+    return year;
+}
+```
+
+Now let's write it in Racket:
+
+```racket
+(define (getcurrentyear days)
+  (define year 1980)
+  (while (> days 365)
+   (if (IsLeapYear year)
+       (when (> days 366)
+         (set! days (- days 366))
+         (set! year (add1 year)))
+       (begin
+         (set! days (- days 365))
+         (set! year (add1 year)))))
+  year)
+```
+
+We'd like to check that this code doesn't go into an infinite loop. Notice that so long as `days` decreases on every loop iteration, it will eventually break the loop, because eventually `days` will be less than or equal to `365`.
+
+So we'd like to verify that days decreases on every loop iteration. Let's write a rule stating that.
+
+```racket
+(define (getcurrentyear days)
+  (define year 1980)
+  (while (> days 365)
+   (define old-days days)
+   (if (IsLeapYear year)
+       (when (> days 366)
+         (set! days (- days 366))
+         (set! year (add1 year)))
+       (begin
+         (set! days (- days 365))
+         (set! year (add1 year))))
+   (assert (< days old-days)))
+  year)
+```
+
+We are saying that we expect days to get smaller on every loop iteration.
+Let's verify if this rule holds:
+
+```racket
+(define-symbolic days number?)
+(verify (getcurrentyear days))
+; (model
+;  [days 366])
+```
+
+And surprise, if we delete that rule we just inserted, we'll see that this goes into an infinite loop:
+
+```racket
+(getcurrentyear 366)
+```
+
+So there's definitely a problem, and we found it without writing any tests. But how can we fix it? We'll do the same thing we did before: ask the verifier to tell us where to look.
+
+First we need to swap `define` to `define/debug`:
+
+```racket
+(define/debug (getcurrentyear days)
+  ...)
+```
+
+And now we'll ask the verifier where to look:
+
+```racket
+(debug-function (getcurrentyear 366))
+```
+
+Remember to save the file before running.
+We'll see some highlighted code. Now does anyone want to tell me which of these expressions I should change?
+
+It actually turns out to be pretty complicated. The problem here is that the algorithm is wrong. To fix it we need to add another case to the conditional:
+
+```racket
+       (if (> days 366)
+           (begin
+             (set! days (- days 366))
+             (set! year (add1 year)))
+           (when (= days 366)
+             (set! days (- days 366))))
+```
+
+or in Java terms:
+
+```java
+            if (days > 366) {
+                days -= 366;
+                year += 1;
+            }
+            else if (days == 366) {
+              days -= 366;
+            }
+```
+
+Now we can run the verifier again:
+
+```racket
+(verify (getcurrentyear days))
+; (model
+;  [days 1711276148])
+```
+
+Uh-oh! It's still broken. This bug is a different one that I don't have time to explain, but it only happens about 400,000 years from now, so we're probably fine.
+
+
