@@ -1,0 +1,11 @@
+(define (getcurrentyear days)
+  (define year 1980)
+  (while (> days 365)
+   (if (IsLeapYear year)
+       (when (> days 366)
+         (-= days 366)
+         (+= year 1))
+       (begin
+         (-= days 365)
+         (+= year 1))))
+  year)

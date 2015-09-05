@@ -1,16 +1,23 @@
 #lang s-exp rosette
-(require "lang.rkt")
+(require "zune.rkt")
 
-(define (max1 x y)
-  (if (> x y) x y))
+(define/debug (getcurrentyear days)
+  (define year 1980)
+  (while (> days 365)
+   (define old_days days)
+   (if (IsLeapYear year)
+       (if (> days 366)
+           (begin
+             (-= days 366)
+             (+= year 1))
+           (when (= days 366)
+             (-= days 366)))
+       (begin
+         (-= days 365)
+         (+= year 1)))
+   (assert (< days old_days)))
+  year)
 
-(define (test-max1 N)
-  (for ([x N])
-    (for ([y N])
-      (define m (max1 x y))
-      (when (or (and (not (= m x)) (not (= m y)))
-                (not (>= m x))
-                (not (>= m y)))
-        (print x)(print y)))))
-
-(test-max1 10)
+(define-symbolic days number?)
+(verify? (getcurrentyear days))
+;(debug-function (getcurrentyear 366))

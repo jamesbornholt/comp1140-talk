@@ -51,7 +51,7 @@ Start a new Racket file, `code.rkt`.
 ; > y
 ; 7
 
-(define z (> y 6))
+(define z (>= y 6))
 ; > z
 ; #t
 
@@ -62,25 +62,20 @@ Start a new Racket file, `code.rkt`.
 ; clear everything
 
 ; public int foo(int x) {
-;   if (x > 5) {
+;   if (x >= 5) {
 ;     return 10;
 ;   } else {
 ;     return 2;
 ;   }    
 ; }
 (define (foo x)
-  (if (> x 5)
+  (if (>= x 5)
       10
       2))
 
 (foo 5)
 (foo 12)
 (foo -5)
-
-; everything we've done so far is just a function
-(> x 5)  ; a function called >
-(print x)  ; a function called print
-(define x 5)  ; a function called define
 
 ```
 
@@ -91,7 +86,7 @@ First in Java, so you can see what we're going to do.
 
 ```java
 int max1(int x, int y) {
-  if (x > y) {
+  if (x >= y) {
     return x;
   } else {
     return y;
@@ -100,7 +95,7 @@ int max1(int x, int y) {
 ```
 ```racket
 (define (max1 x y)
-  (if (> x y) x y))
+  (if (>= x y) x y))
 ```
 
 This is a pretty simple function, so I'm fairly confident it's right. But to be sure, let's think about what we expect `max` to do.
@@ -109,60 +104,110 @@ What are some rules for the output of this function?
 1. Its output should be either `x` or `y`
 2. Its output should be greater than or equal to both `x` and `y`
 
-We might test that these rules hold by just trying them for lots of values of x and y:
-
-```java
-void test_max1(int N) {
-  for (int x = 0; x < N; x++) {
-    for (int y = 0; y < N; y++) {
-      int m = max1(x, y);
-      if ( (m != x && m != y)
-           || !(m >= x) || !(m >= y) ) {
-        System.out.println(x + "," + y);
-      }
-    }
-  }
-}
-```
-```racket
-(define (test-max1 N)
-  (for ([x N])
-    (for ([y N])
-      (define m (max1 x y))
-      (when (or (and (not (= m x)) (not (= m y)))
-                (not (>= m x))
-                (not (>= m y)))
-        (print x)(print y)))))
-```
-
-and we can run this test:
+Let's formalise these rules by writing them down:
 
 ```racket
-(test-max1 10)
+; output should be either x or y
+(or (= (max1 x y) x) (= (max1 x y) y))
+; output should be >= x
+(>= (max1 x y) x)
+; output should be >= y
+(>= (max1 x y) y)
 ```
 
-Let's check if those rules hold:
+We want all of these rules to hold, so we'll `and` them together.
+
+But we have a problem: what are the values of `x` and `y`? We didn't define them.
+
+One thing we could do is to wrap this whole thing inside a `test`:
+
+```racket
+(define (test-max1 x y)
+  ...)
+```
+
+This returns `#t` if `max1` follows the rules on a particular `x` and `y`. But to be sure the function is correct, we'd have to test all possible `x` and `y`. There are a lot of them!
+
+Instead, we're going to do this by verification. So let's go back to the rule:
+
+```racket
+; output should be either x or y
+(or (= (max1 x y) x) (= (max1 x y) y))
+; output should be >= x
+(>= (max1 x y) x)
+; output should be >= y
+(>= (max1 x y) y)
+```
+
+The idea of verification is to pose the problem as a question: *do there exist values for `x` and `y` that break these rules?*.
+
+To pose this question, we're going to introduce something called a "symbolic variable" for `x` and `y`:
 
 ```racket
 (define-symbolic x number?)
 (define-symbolic y number?)
-
-(verify? (and (or (= (max1 x y) x) (= (max1 x y) y))
-              (>= (max1 x y) x)
-              (>= (max1 x y) y)))
-; > #t
 ```
 
-Great! And just to be sure, we could change, for example, `(= (max1 x y) y)` to something incorrect, and see a counterexample.
+What this definition does is says "there are variables `x` and `y`, but I don't know their value yet -- we're going to figure it out later on".
+Notice that this time we had to tell Racket the type of `x` and `y`, because we didn't give them values.
+
+Now what we're going to do is ask Rosette to "verify" our rule:
+
+```racket
+(verify?
+  (and
+  ; output should be either x or y
+  (or (= (max1 x y) x) (= (max1 x y) y))
+  ; output should be >= x
+  (>= (max1 x y) x)
+  ; output should be >= y
+  (>= (max1 x y) y)
+  ))
+```
+
+When we run this, Rosette is going to check whether this rule is true for *every* value of `x` and `y`. So, before I run it: is it true? Is there any value of `x` and `y` that breaks the rule? Nope! Let's give it a shot:
+
+```racket
+#t
+```
+
+The verify function returned true, which means this rule is true. There are *no* values of `x` and `y` that break the rule. Rosette tried *every possible value*.
+
+Just to be sure, let's try breaking *max*:
+
+```racket
+(define (max1 x y)
+  (if (>= x y) x x))
+```
+
+Now it always returns `x`. If we run `verify?` again, it's going to return something different:
+
+```racket
+(model
+ [x 0]
+ [y 2])
+```
+
+Instead of returning `true`, it's returned something called a "model". What this output means is: here is a value for `x` and `y` for which the rule *does not hold*.
+And indeed:
+
+```racket
+> (max1 0 2)
+0
+```
+
+which is clearly wrong.
+
+### A more interesting `max`
 
 So I lied: this is kind of a boring function. But I'm going to write another version of max, first in Java, then in Racket.
 
 ```racket
 ; int max(int x, int y) {
-;   return y ^ -(x >= y ? 1 : 0) & (x ^ (x >= y ? 1 : 0));
+;   return y ^ -(y <= x ? 1 : 0) & (x ^ (y <= x ? 1 : 0));
 ; }
 (define (max2 x y)
-  (^ y (& (- (>= x y)) (^ x (>= x y)))))
+  (^ y (& (- (<= y x)) (^ x (<= y x)))))
 ```
 
 This one's a little crazier. But hopefully it still does the same thing! We'll talk in a second about why we might want this version. But first, is it correct? Any guesses? Let's find out.
@@ -193,7 +238,7 @@ To do so, we first need to tell the verifier that we want to debug `max2`:
 
 ```racket
 (define/debug (max2 x y)
-  (^ y (& (- (>= x y)) (^ x (>= x y)))))
+  (^ y (& (- (<= y x)) (^ x (<= y x)))))
 ```
 
 Then we're going to debug the case we just found:
@@ -210,7 +255,7 @@ I don't expect you to be able to spot the bug, since it's pretty subtle, so I'm 
 
 ```racket
 (define (max3 x y)
-  (^ y (& (- (>= x y)) (^ x y))))
+  (^ y (& (- (<= y x)) (^ x y))))
 ```
 
 Let's try verifying this one against `max1`, which we're pretty sure is correct:
