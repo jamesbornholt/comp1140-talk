@@ -2,7 +2,7 @@
 
 These are notes for a lecture I gave about program verification using [Rosette](http://homes.cs.washington.edu/~emina/rosette/) to a class of freshman CS students.
 
-You probably want to [watch the video](http://homes.cs.washington.edu/~emina/rosette/) instead of reading these.
+You probably want to [watch the video](http://cs.anu.edu.au/courses/COMP1140/lectures/G05.mp4) instead of reading these.
 
 ## Zune
 
